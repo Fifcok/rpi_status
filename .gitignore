@@ -1,0 +1,22 @@
+# Dane wykonawcze (nie powinny trafiać do repozytorium).
+/data/*.sqlite
+/data/*.sqlite-*
+/data/*.cache
+/data/network_baseline.json
+/logs/*.log
+/backup/*.tar.gz
+/backup/tmp_*/
+
+# Zachowaj puste katalogi w repo.
+!/data/.gitkeep
+!/logs/.gitkeep
+!/backup/.gitkeep
+
+# Środowisko / IDE
+.vscode/
+.idea/
+*.swp
+
+# Systemowe
+.DS_Store
+Thumbs.db
