@@ -7,9 +7,19 @@ odświeżanie danych AJAX co 5 sekund.
 ## Wymagania
 
 - Raspberry Pi OS / Debian z Apache 2.4 + `mod_php` lub `php-fpm`
-- PHP 8.3 z rozszerzeniami: `pdo_sqlite`, `pdo_mysql` (opcjonalnie), `session`
+- **PHP 7.3+ lub PHP 8.x** z rozszerzeniami: `pdo_sqlite`, `pdo_mysql` (opcjonalnie), `session`.
+  Kod docelowo jest pisany pod PHP 8.3, ale zawiera polyfille (`includes/functions.php`)
+  dla funkcji wprowadzonych w PHP 8.0 (`str_starts_with`, `str_contains`, `str_ends_with`)
+  i nie używa innych składni dostępnych wyłącznie w PHP 8+ (union types, `match`, enumy,
+  `readonly`), dzięki czemu działa również na starszym PHP 7 (np. domyślnym w
+  Raspberry Pi OS Buster/Bullseye).
 - Uprawnienia `www-data` do odczytu `/proc`, `/sys/class/thermal`, wykonywania
   poleceń diagnostycznych (patrz sekcja *Sudoers* poniżej)
+
+> **Sprawdź wersję PHP przed instalacją:** `php -v`. Jeśli Apache używa innego
+> modułu PHP niż CLI (częste na starszych obrazach), sprawdź też
+> `apache2ctl -M | grep php` oraz `sudo tail -50 /var/log/apache2/error.log`
+> po pierwszym wdrożeniu — błędy PHP (w tym błędy składni) trafiają właśnie tam.
 
 ## Instalacja
 

@@ -5,6 +5,27 @@
 
 declare(strict_types=1);
 
+// Polyfille funkcji wprowadzonych w PHP 8.0 - aplikacja ma działać również na PHP 7
+// (starsze obrazy Raspberry Pi OS domyślnie instalują PHP 7.3/7.4).
+if (!function_exists('str_starts_with')) {
+    function str_starts_with(string $haystack, string $needle): bool
+    {
+        return $needle === '' || strncmp($haystack, $needle, strlen($needle)) === 0;
+    }
+}
+if (!function_exists('str_ends_with')) {
+    function str_ends_with(string $haystack, string $needle): bool
+    {
+        return $needle === '' || substr($haystack, -strlen($needle)) === $needle;
+    }
+}
+if (!function_exists('str_contains')) {
+    function str_contains(string $haystack, string $needle): bool
+    {
+        return $needle === '' || strpos($haystack, $needle) !== false;
+    }
+}
+
 /**
  * Bezpiecznie wykonuje polecenie systemowe i zwraca jego wyjście.
  * Jeżeli polecenie nie istnieje lub zwróci błąd, zwraca pusty string
@@ -80,8 +101,11 @@ function command_exists(string $binary): bool
     return $which !== '';
 }
 
-/** Formatuje bajty na czytelną jednostkę (KB, MB, GB, TB). */
-function format_bytes(int|float $bytes, int $precision = 1): string
+/**
+ * Formatuje bajty na czytelną jednostkę (KB, MB, GB, TB).
+ * Bez typu unii (int|float) w sygnaturze - kompatybilność z PHP 7 (brak union types przed PHP 8.0).
+ */
+function format_bytes($bytes, int $precision = 1): string
 {
     $units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
     $bytes = max($bytes, 0);
@@ -106,8 +130,11 @@ function format_duration(int $seconds): string
     return implode(' ', $parts);
 }
 
-/** Zwraca odpowiedź JSON i kończy wykonanie skryptu. */
-function json_response(mixed $data, int $statusCode = 200): never
+/**
+ * Zwraca odpowiedź JSON i kończy wykonanie skryptu.
+ * Bez typów "mixed"/"never" w sygnaturze - kompatybilność z PHP 7 (dostępne od PHP 8.0/8.1).
+ */
+function json_response($data, int $statusCode = 200)
 {
     http_response_code($statusCode);
     header('Content-Type: application/json; charset=utf-8');

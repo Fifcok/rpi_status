@@ -36,7 +36,9 @@ function get_ssl_certificates(): array
         }
     }
 
-    usort($certificates, static fn($a, $b) => $a['days_left'] <=> $b['days_left']);
+    usort($certificates, static function ($a, $b) {
+        return $a['days_left'] <=> $b['days_left'];
+    });
 
     return $certificates;
 }
