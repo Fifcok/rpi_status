@@ -15,7 +15,7 @@ if (is_logged_in()) {
 
 $error = null;
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     if (!csrf_verify($_POST['csrf_token'] ?? null)) {
         $error = 'Sesja wygasła, odśwież stronę i spróbuj ponownie.';
     } else {
