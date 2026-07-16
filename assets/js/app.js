@@ -6,15 +6,27 @@
 const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content || '';
 const REFRESH_INTERVAL_MS = 5000;
 
-/** Wrapper na fetch z automatycznym dołączaniem tokenu CSRF dla POST. */
+// Prefiks URL aplikacji (np. "/status"), gdy panel jest zainstalowany w podkatalogu
+// domeny zamiast w jej katalogu głównym. Wstrzykiwany przez includes/header.php.
+const BASE_PATH = document.querySelector('meta[name="base-path"]')?.content || '';
+
+/** Dokleja BASE_PATH do ścieżek zaczynających się od "/" (zostawia URL-e absolutne bez zmian). */
+function withBasePath(url) {
+    if (/^https?:\/\//i.test(url) || !url.startsWith('/')) {
+        return url;
+    }
+    return BASE_PATH + url;
+}
+
+/** Wrapper na fetch z automatycznym dołączaniem tokenu CSRF dla POST i prefiksu BASE_PATH. */
 async function apiFetch(url, options = {}) {
     const opts = { ...options, headers: { ...(options.headers || {}) } };
     if ((opts.method || 'GET').toUpperCase() === 'POST') {
         opts.headers['X-CSRF-Token'] = CSRF_TOKEN;
     }
-    const response = await fetch(url, opts);
+    const response = await fetch(withBasePath(url), opts);
     if (!response.ok && response.status === 401) {
-        window.location.href = '/login.php';
+        window.location.href = BASE_PATH + '/login.php';
         throw new Error('Sesja wygasła.');
     }
     return response.json();

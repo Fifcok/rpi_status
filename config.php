@@ -16,6 +16,28 @@ define('APP_NAME', 'RPi5 Admin Dashboard');
 
 ini_set('error_log', APP_ROOT . '/logs/php_errors.log');
 
+/**
+ * Prefiks URL, pod którym zainstalowana jest aplikacja (np. "/status", jeśli
+ * panel działa pod https://twoja-domena/status/, albo "" jeśli działa w
+ * katalogu głównym domeny). Wyliczany automatycznie na podstawie położenia
+ * tego pliku względem DOCUMENT_ROOT, żeby linki, przekierowania i wywołania
+ * AJAX działały niezależnie od tego, w jakim podkatalogu wgrano projekt.
+ */
+$appRealPath = realpath(APP_ROOT);
+$docRootRaw = $_SERVER['DOCUMENT_ROOT'] ?? '';
+$docRealPath = $docRootRaw !== '' ? realpath($docRootRaw) : false;
+
+$basePath = '';
+if ($appRealPath !== false && $docRealPath !== false) {
+    $appRealPath = str_replace('\\', '/', $appRealPath);
+    $docRealPath = str_replace('\\', '/', rtrim($docRealPath, '/\\'));
+    if (strpos($appRealPath, $docRealPath) === 0) {
+        $basePath = substr($appRealPath, strlen($docRealPath));
+    }
+}
+define('BASE_PATH', $basePath); // np. "/status" lub ""
+unset($appRealPath, $docRootRaw, $docRealPath, $basePath);
+
 // --- Konfiguracja sesji (przed session_start) ---
 ini_set('session.cookie_httponly', '1');
 ini_set('session.use_strict_mode', '1');
