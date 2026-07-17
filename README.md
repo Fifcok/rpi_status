@@ -142,6 +142,49 @@ Aplikacja wywołuje te polecenia przez `sudo -n` (nieinteraktywnie) — jeśli r
 NOPASSWD nie jest skonfigurowana, komenda po prostu nie zwróci danych, bez
 zawieszania żądania.
 
+### Fail2ban dla panelu (opcjonalnie, zalecane)
+
+Panel ma wbudowany miękki limit logowania (5 nieudanych prób / 5 minut na
+login+IP - patrz `includes/auth.php`), ale to nie blokuje na poziomie
+firewalla. Żeby dodać realną blokadę IP po nieudanych próbach logowania do
+`/status` (nie tylko do SSH), zainstaluj fail2ban i dodaj własny jail
+czytający `logs/app.log`:
+
+```bash
+sudo apt install -y fail2ban
+sudo systemctl enable --now fail2ban
+```
+
+```bash
+sudo tee /etc/fail2ban/filter.d/rpi-status.conf > /dev/null << 'EOF'
+[Definition]
+failregex = ^\[.*\] \[WARNING\] Nieudane logowanie dla '.*' z <HOST>$
+ignoreregex =
+EOF
+
+sudo tee /etc/fail2ban/jail.d/rpi-status.conf > /dev/null << 'EOF'
+[rpi-status]
+enabled  = true
+port     = http,https
+filter   = rpi-status
+logpath  = /var/www/rpi_status/logs/app.log
+maxretry = 5
+findtime = 300
+bantime  = 3600
+EOF
+
+# Sprawdź regex na realnym logu przed restartem
+sudo fail2ban-regex /var/www/rpi_status/logs/app.log /etc/fail2ban/filter.d/rpi-status.conf
+
+sudo systemctl restart fail2ban
+sudo fail2ban-client status rpi-status
+```
+
+Pamiętaj podmienić `logpath` na rzeczywistą ścieżkę instalacji (np.
+`/var/www/html/status/logs/app.log`, jeśli panel jest w podkatalogu). Po
+skonfigurowaniu strona "Bezpieczeństwo" w panelu automatycznie pokaże
+fail2ban jako aktywny wraz z listą jaili (w tym `rpi-status`).
+
 ### Docker
 
 Aby panel mógł zarządzać kontenerami, dodaj `www-data` do grupy `docker`:
