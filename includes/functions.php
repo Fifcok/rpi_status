@@ -150,10 +150,14 @@ function app_log(string $level, string $message): void
     @file_put_contents(LOGS_DIR . '/app.log', $line, FILE_APPEND | LOCK_EX);
 }
 
-/** Waliduje, że wartość jest bezpiecznym identyfikatorem (litery, cyfry, _ - .). */
+/**
+ * Waliduje, że wartość jest bezpiecznym identyfikatorem (litery, cyfry, _ - . @).
+ * "@" jest dozwolone celowo - templatowane jednostki systemd (np.
+ * "qbittorrent-nox@user", "openvpn@config") używają go w nazwie.
+ */
 function is_safe_identifier(string $value): bool
 {
-    return (bool) preg_match('/^[A-Za-z0-9_.\-]+$/', $value) && $value !== '' && $value !== '.' && $value !== '..';
+    return (bool) preg_match('/^[A-Za-z0-9_.@\-]+$/', $value) && $value !== '' && $value !== '.' && $value !== '..';
 }
 
 /** Skraca ciąg znaków do bezpiecznej długości dla wyjścia HTML. */
