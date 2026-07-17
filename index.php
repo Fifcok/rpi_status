@@ -39,7 +39,7 @@ require APP_ROOT . '/includes/header.php';
                 <i class="bi bi-cpu tile-icon"></i>
                 <span class="tile-title">CPU</span>
             </div>
-            <div class="tile-value" data-field="cpu_percent"><?= h((string) ($cpu['percent'] ?? '—')) ?><small>%</small></div>
+            <div class="tile-value"><span data-field="cpu_percent"><?= h((string) ($cpu['percent'] ?? '—')) ?></span><small>%</small></div>
             <div class="progress tile-progress">
                 <div class="progress-bar bg-accent" data-field="cpu_percent_bar" style="width: <?= h((string) ($cpu['percent'] ?? 0)) ?>%"></div>
             </div>
@@ -58,7 +58,7 @@ require APP_ROOT . '/includes/header.php';
                 <i class="bi bi-memory tile-icon"></i>
                 <span class="tile-title">RAM</span>
             </div>
-            <div class="tile-value" data-field="ram_percent"><?= h((string) ($ram['percent'] ?? '—')) ?><small>%</small></div>
+            <div class="tile-value"><span data-field="ram_percent"><?= h((string) ($ram['percent'] ?? '—')) ?></span><small>%</small></div>
             <div class="progress tile-progress">
                 <div class="progress-bar bg-info" data-field="ram_percent_bar" style="width: <?= h((string) ($ram['percent'] ?? 0)) ?>%"></div>
             </div>
