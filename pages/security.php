@@ -7,7 +7,7 @@ require_login();
 require_once __DIR__ . '/../includes/security_info.php';
 
 $recentLogins = get_recent_ssh_logins(15);
-$failedLogins = get_failed_ssh_logins(50);
+$failedLogins = get_failed_ssh_logins(15);
 $topAttackers = get_top_attacking_ips(15);
 $topUsernames = get_top_failed_usernames(15);
 $firewall = get_firewall_status();
@@ -52,7 +52,7 @@ require APP_ROOT . '/includes/header.php';
 
 <div class="row g-3">
     <div class="col-lg-6">
-        <div class="card">
+        <div class="card h-100">
             <div class="card-header">Ostatnie logowania SSH</div>
             <div class="card-body p-0">
                 <table class="table table-dark-custom mb-0">
@@ -70,9 +70,9 @@ require APP_ROOT . '/includes/header.php';
         </div>
     </div>
     <div class="col-lg-6">
-        <div class="card">
+        <div class="card h-100">
             <div class="card-header">Nieudane logowania</div>
-            <div class="card-body p-0" style="max-height: 340px; overflow-y: auto;">
+            <div class="card-body p-0">
                 <table class="table table-dark-custom mb-0">
                     <thead><tr><th>Użytkownik</th><th>IP</th></tr></thead>
                     <tbody id="failedLoginsBody">
