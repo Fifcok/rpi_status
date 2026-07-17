@@ -68,10 +68,50 @@ function get_failed_ssh_logins(int $limit = 50): array
     return $failed;
 }
 
-/** Ranking adresów IP z największą liczbą nieudanych prób logowania. */
+/**
+ * Wszystkie nieudane logowania SSH od początku dostępnej historii (bez limitu -n),
+ * do liczenia rankingów top-N na pełnym zbiorze zamiast tylko ostatnich N prób.
+ * Bezpiecznik 20000 wpisów, żeby nie eksplodować pamięciowo na bardzo starych btmp.
+ */
+function get_all_failed_ssh_logins(): array
+{
+    $output = safe_exec_privileged('lastb', ['-F', '-i']);
+
+    $failed = [];
+    if ($output !== '') {
+        foreach (explode("\n", trim($output)) as $line) {
+            if ($line === '' || str_starts_with($line, 'btmp begins')) {
+                continue;
+            }
+            $parts = preg_split('/\s+/', trim($line));
+            if (count($parts) < 3) {
+                continue;
+            }
+            $failed[] = ['user' => $parts[0], 'ip' => $parts[2] ?? ''];
+            if (count($failed) >= 20000) {
+                break;
+            }
+        }
+        return $failed;
+    }
+
+    // Fallback: journalctl (sshd) - szukamy "Failed password ... from <ip>"
+    $journal = safe_exec_privileged('journalctl', ['-u', 'ssh', '-u', 'sshd', '--no-pager', '-n', '20000']);
+    foreach (explode("\n", $journal) as $line) {
+        if (preg_match('/Failed password for (?:invalid user )?(\S+) from ([\d.:a-fA-F]+)/', $line, $m)) {
+            $failed[] = ['user' => $m[1], 'ip' => $m[2]];
+            if (count($failed) >= 20000) {
+                break;
+            }
+        }
+    }
+    return $failed;
+}
+
+/** Ranking adresów IP z największą liczbą nieudanych prób logowania (cała dostępna historia). */
 function get_top_attacking_ips(int $limit = 15): array
 {
-    $failed = get_failed_ssh_logins(500);
+    $failed = get_all_failed_ssh_logins();
     $counts = [];
     foreach ($failed as $attempt) {
         $ip = $attempt['ip'];
@@ -90,10 +130,13 @@ function get_top_attacking_ips(int $limit = 15): array
     return $result;
 }
 
-/** Ranking loginów najczęściej używanych w nieudanych próbach logowania (np. admin, root, pi). */
+/**
+ * Ranking loginów najczęściej używanych w nieudanych próbach logowania
+ * (np. admin, root, pi) - cała dostępna historia.
+ */
 function get_top_failed_usernames(int $limit = 15): array
 {
-    $failed = get_failed_ssh_logins(500);
+    $failed = get_all_failed_ssh_logins();
     $counts = [];
     foreach ($failed as $attempt) {
         $user = $attempt['user'];
