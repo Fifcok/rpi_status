@@ -195,17 +195,38 @@ function copy_directory_excluding(string $src, string $dest, array $excludeAbsol
     }
 }
 
+/**
+ * Rekurencyjnie usuwa katalog. Pisane ręcznie (bez RecursiveDirectoryIterator)
+ * celowo: symlinki do katalogów (typowe np. w /etc/letsencrypt/live/.../*.pem)
+ * mają isDir()===true, ale rmdir() na symlinku zawsze zawodzi w Linuksie
+ * (trzeba unlink()) - a standardowy RecursiveDirectoryIterator dodatkowo
+ * próbuje w nie zejść, więc mogłoby to zostawiać śmieci albo, w gorszym razie,
+ * kasować pliki poza katalogiem roboczym backupu, jeśli symlink wskazuje na
+ * zewnątrz. Sprawdzenie is_link() przed is_dir() eliminuje oba te problemy.
+ */
 function remove_directory_recursive(string $dir): void
 {
+    if (is_link($dir)) {
+        @unlink($dir);
+        return;
+    }
     if (!is_dir($dir)) {
         return;
     }
-    $items = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator($dir, RecursiveDirectoryIterator::SKIP_DOTS),
-        RecursiveIteratorIterator::CHILD_FIRST
-    );
-    foreach ($items as $item) {
-        $item->isDir() ? rmdir($item->getPathname()) : unlink($item->getPathname());
+
+    foreach (@scandir($dir) ?: [] as $entry) {
+        if ($entry === '.' || $entry === '..') {
+            continue;
+        }
+        $path = $dir . '/' . $entry;
+        if (is_link($path)) {
+            @unlink($path); // symlink - usuń sam wpis, nigdy nie wchodź do celu
+        } elseif (is_dir($path)) {
+            remove_directory_recursive($path);
+        } else {
+            @unlink($path);
+        }
     }
-    rmdir($dir);
+
+    @rmdir($dir);
 }
