@@ -116,9 +116,11 @@ zaplanowanych zadań powyżej.
 ## Sudoers — uprawnienia do poleceń diagnostycznych
 
 Wiele danych (temperatura przez `vcgencmd`, logowania SSH przez `last`/`lastb`,
-status firewalla, `fail2ban-client`, pełny `journalctl`) wymaga uprawnień, których
-`www-data` domyślnie nie ma. Aplikacja **działa bez nich** (po prostu pokaże "—"
-lub "brak danych"), ale aby uzyskać pełną funkcjonalność, utwórz plik
+status firewalla, `fail2ban-client`, pełny `journalctl`, certyfikaty SSL pod
+`/etc/letsencrypt` - certbot chroni ten katalog przed odczytem przez zwykłych
+użytkowników) wymaga uprawnień, których `www-data` domyślnie nie ma. Aplikacja
+**działa bez nich** (po prostu pokaże "—", "brak danych" lub "nie znaleziono
+certyfikatów"), ale aby uzyskać pełną funkcjonalność, utwórz plik
 `/etc/sudoers.d/rpi-status` (przez `sudo visudo -f /etc/sudoers.d/rpi-status`):
 
 ```
@@ -132,6 +134,8 @@ www-data ALL=(root) NOPASSWD: /usr/sbin/iptables
 www-data ALL=(root) NOPASSWD: /usr/bin/fail2ban-client
 www-data ALL=(root) NOPASSWD: /usr/bin/crontab
 www-data ALL=(root) NOPASSWD: /usr/bin/tail
+www-data ALL=(root) NOPASSWD: /usr/bin/find
+www-data ALL=(root) NOPASSWD: /usr/bin/openssl
 ```
 
 Aplikacja wywołuje te polecenia przez `sudo -n` (nieinteraktywnie) — jeśli reguła

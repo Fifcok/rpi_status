@@ -22,6 +22,18 @@ function get_ssl_certificates(): array
     foreach (glob('/etc/letsencrypt/live/*/fullchain.pem') ?: [] as $path) {
         $certFiles[] = $path;
     }
+
+    // /etc/letsencrypt jest domyślnie zablokowane przed odczytem przez www-data
+    // (certbot chroni w ten sposób klucze prywatne w archive/) - jeśli glob()
+    // nic nie znalazł, spróbuj przez sudo (wymaga reguły NOPASSWD dla "find"
+    // w /etc/sudoers.d/rpi-status, patrz README).
+    if ($certFiles === [] && command_exists('find')) {
+        $found = safe_exec_privileged('find', ['/etc/letsencrypt/live', '-maxdepth', '2', '-name', 'fullchain.pem']);
+        foreach (array_filter(array_map('trim', explode("\n", $found))) as $path) {
+            $certFiles[] = $path;
+        }
+    }
+
     foreach (EXTRA_CERT_PATHS as $path) {
         if (is_readable($path)) {
             $certFiles[] = $path;
@@ -45,11 +57,14 @@ function get_ssl_certificates(): array
 
 function read_certificate_info(string $path): ?array
 {
-    if (!is_readable($path)) {
-        return null;
-    }
+    $output = is_readable($path)
+        ? safe_exec('openssl', ['x509', '-in', $path, '-noout', '-subject', '-issuer', '-enddate'])
+        : '';
 
-    $output = safe_exec('openssl', ['x509', '-in', $path, '-noout', '-subject', '-issuer', '-enddate']);
+    if ($output === '') {
+        // Brak bezpośrednich uprawnień do pliku - spróbuj przez sudo (patrz README - sudoers).
+        $output = safe_exec_privileged('openssl', ['x509', '-in', $path, '-noout', '-subject', '-issuer', '-enddate']);
+    }
     if ($output === '') {
         return null;
     }
