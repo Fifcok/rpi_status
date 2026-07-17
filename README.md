@@ -28,10 +28,23 @@ sudo mkdir -p /var/www/rpi_status
 sudo cp -r . /var/www/rpi_status
 cd /var/www/rpi_status
 
+# Prawdziwa konfiguracja (z hasłami) - config.php jest w .gitignore i nigdy
+# nie trafia do repozytorium. Skopiuj szablon i uzupełnij dane MySQL/MariaDB.
+sudo cp config.example.php config.php
+sudo nano config.php   # uzupełnij DB_MYSQL_USER / DB_MYSQL_PASS
+
 # Katalogi zapisywalne przez serwer WWW
 sudo chown -R www-data:www-data data logs backup
 sudo chmod -R 750 data logs backup
+sudo chown www-data:www-data config.php
+sudo chmod 640 config.php
 ```
+
+> **Uwaga:** jeśli aktualizujesz istniejące wdrożenie przez `git pull`, a Twój
+> `config.php` z prawdziwym hasłem był wcześniej śledzony przez git, zrób
+> najpierw kopię zapasową (`cp config.php config.php.bak`) — od tej wersji
+> plik jest ignorowany przez git, więc `pull` go nie nadpisze, ale warto
+> zabezpieczyć się przed pomyłką.
 
 ### Konfiguracja Apache (VirtualHost)
 

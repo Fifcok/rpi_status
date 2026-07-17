@@ -1,7 +1,14 @@
 <?php
 /**
- * Globalna konfiguracja aplikacji.
- * Musi być dołączona jako pierwszy plik w każdym punkcie wejścia.
+ * Szablon konfiguracji aplikacji.
+ *
+ * Ten plik JEST śledzony przez git i trafia na GitHuba - nie wpisuj tu
+ * prawdziwych haseł. Przy wdrożeniu skopiuj go do config.php (który jest
+ * w .gitignore i nigdy nie zostanie wypchnięty do repozytorium):
+ *
+ *   cp config.example.php config.php
+ *
+ * a następnie uzupełnij dane logowania do MySQL/MariaDB poniżej.
  */
 
 declare(strict_types=1);
@@ -102,9 +109,10 @@ const BACKUP_TARGETS = [
 
 // Dane logowania do MySQL/MariaDB używane wyłącznie do odczytu metadanych i mysqldump.
 // Zalecane: konto z uprawnieniami tylko SELECT / PROCESS / LOCK TABLES.
+// UZUPEŁNIJ PONIŻSZE WARTOŚCI W SWOJEJ KOPII config.php - NIE w tym pliku.
 const DB_MYSQL_HOST = '127.0.0.1';
-const DB_MYSQL_USER = 'rpi_status_ro';
-const DB_MYSQL_PASS = '';
+const DB_MYSQL_USER = 'CHANGE_ME';
+const DB_MYSQL_PASS = 'CHANGE_ME';
 const DB_MYSQL_PORT = 3306;
 
 require_once APP_ROOT . '/includes/functions.php';

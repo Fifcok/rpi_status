@@ -100,11 +100,7 @@ function refreshDashboardTiles() {
         const ramBar = document.querySelector('[data-field="ram_percent_bar"]');
         if (ramBar) ramBar.style.width = `${data.ram_percent ?? 0}%`;
 
-        updateField('disk_percent', data.disk_percent ?? '—');
-        updateField('disk_used', data.disk_used);
-        updateField('disk_free', data.disk_free);
-        const diskBar = document.querySelector('[data-field="disk_percent_bar"]');
-        if (diskBar) diskBar.style.width = `${data.disk_percent ?? 0}%`;
+        renderDiskList(data.disks || []);
 
         updateField('sys_uptime', data.sys_uptime);
         updateField('sys_hostname', data.sys_hostname);
@@ -120,6 +116,35 @@ function refreshDashboardTiles() {
         updateField('net_daily_rx', data.net_daily_rx);
         updateField('net_daily_tx', data.net_daily_tx);
     }).catch(() => {});
+}
+
+/** Renderuje listę kafelków dysków (liczba dysków jest dynamiczna, stąd pełne przebudowanie). */
+function renderDiskList(disks) {
+    const container = document.getElementById('diskList');
+    if (!container) return;
+
+    if (disks.length === 0) {
+        container.innerHTML = '<div class="text-muted small">Nie wykryto zamontowanych dysków.</div>';
+        return;
+    }
+
+    container.innerHTML = disks.map((d) => {
+        const barClass = d.percent >= 90 ? 'bg-danger' : 'bg-warning';
+        return `
+            <div class="disk-row">
+                <div class="disk-row-head">
+                    <span><i class="bi bi-hdd"></i> ${escapeHtml(d.label)} <span class="text-muted small">(${escapeHtml(d.mount)})</span></span>
+                    <span class="fw-semibold">${d.percent}%</span>
+                </div>
+                <div class="progress tile-progress">
+                    <div class="progress-bar ${barClass}" style="width: ${d.percent}%"></div>
+                </div>
+                <div class="tile-meta">
+                    <div>Zajęte: ${d.used} / ${d.total} — Wolne: ${d.free}</div>
+                </div>
+            </div>
+        `;
+    }).join('');
 }
 
 /* ---------- Powiadomienia ---------- */

@@ -10,7 +10,7 @@ require_once __DIR__ . '/../includes/system_info.php';
 
 $cpu = get_cpu_info();
 $ram = get_ram_info();
-$disk = get_disk_info();
+$disks = get_all_disks_info();
 $system = get_system_info();
 $network = get_network_info();
 
@@ -24,9 +24,16 @@ json_response([
     'ram_used' => format_bytes($ram['used']),
     'ram_free' => format_bytes($ram['free']),
 
-    'disk_percent' => $disk['percent'],
-    'disk_used' => format_bytes($disk['used']),
-    'disk_free' => format_bytes($disk['free']),
+    'disks' => array_map(static function (array $d): array {
+        return [
+            'label' => $d['label'],
+            'mount' => $d['mount'],
+            'percent' => $d['percent'],
+            'used' => format_bytes($d['used']),
+            'total' => format_bytes($d['total']),
+            'free' => format_bytes($d['free']),
+        ];
+    }, $disks),
 
     'sys_uptime' => $system['uptime_human'],
     'sys_hostname' => $system['hostname'],

@@ -165,6 +165,12 @@ body {
 .tile-meta i { width: 18px; color: var(--text-muted); }
 .tile-meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 6px 16px; }
 
+/* ---------- Lista dysków (kafelek "Dyski") ---------- */
+.disk-list { display: flex; flex-direction: column; gap: 14px; }
+.disk-row + .disk-row { padding-top: 14px; border-top: 1px solid var(--border-color); }
+.disk-row-head { display: flex; align-items: center; justify-content: space-between; font-size: 0.9rem; margin-bottom: 6px; }
+.disk-row .tile-progress { margin-bottom: 6px; }
+
 /* ---------- Status dots ---------- */
 .status-dot {
     display: inline-block;

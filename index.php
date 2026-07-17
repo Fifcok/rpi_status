@@ -14,7 +14,7 @@ require_once __DIR__ . '/includes/system_info.php';
 
 $cpu = get_cpu_info();
 $ram = get_ram_info();
-$disk = get_disk_info();
+$disks = get_all_disks_info();
 $system = get_system_info();
 $network = get_network_info();
 
@@ -69,20 +69,31 @@ require APP_ROOT . '/includes/header.php';
         </div>
     </div>
 
-    <!-- Dysk -->
-    <div class="tile card" data-tile="disk">
+    <!-- Dysk(i) -->
+    <div class="tile card tile-wide" data-tile="disk">
         <div class="card-body">
             <div class="tile-header">
-                <i class="bi bi-hdd tile-icon"></i>
-                <span class="tile-title">Dysk</span>
+                <i class="bi bi-hdd-stack tile-icon"></i>
+                <span class="tile-title">Dyski</span>
             </div>
-            <div class="tile-value" data-field="disk_percent"><?= h((string) ($disk['percent'] ?? '—')) ?><small>%</small></div>
-            <div class="progress tile-progress">
-                <div class="progress-bar bg-warning" data-field="disk_percent_bar" style="width: <?= h((string) ($disk['percent'] ?? 0)) ?>%"></div>
-            </div>
-            <div class="tile-meta">
-                <div><i class="bi bi-hdd-fill"></i> Zajęte: <span data-field="disk_used"><?= h(format_bytes($disk['used'])) ?></span></div>
-                <div><i class="bi bi-hdd-rack"></i> Wolne: <span data-field="disk_free"><?= h(format_bytes($disk['free'])) ?></span></div>
+            <div id="diskList" class="disk-list">
+                <?php foreach ($disks as $d): ?>
+                <div class="disk-row">
+                    <div class="disk-row-head">
+                        <span><i class="bi bi-hdd"></i> <?= h($d['label']) ?> <span class="text-muted small">(<?= h($d['mount']) ?>)</span></span>
+                        <span class="fw-semibold"><?= h((string) $d['percent']) ?>%</span>
+                    </div>
+                    <div class="progress tile-progress">
+                        <div class="progress-bar <?= $d['percent'] >= 90 ? 'bg-danger' : 'bg-warning' ?>" style="width: <?= h((string) $d['percent']) ?>%"></div>
+                    </div>
+                    <div class="tile-meta">
+                        <div>Zajęte: <?= h(format_bytes($d['used'])) ?> / <?= h(format_bytes($d['total'])) ?> — Wolne: <?= h(format_bytes($d['free'])) ?></div>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+                <?php if (!$disks): ?>
+                <div class="text-muted small">Nie wykryto zamontowanych dysków.</div>
+                <?php endif; ?>
             </div>
         </div>
     </div>

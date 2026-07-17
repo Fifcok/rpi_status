@@ -151,6 +151,61 @@ function get_block_devices(): array
     return $data['blockdevices'] ?? [];
 }
 
+/**
+ * Zajętość WSZYSTKICH zamontowanych dysków fizycznych (np. karta SD z systemem +
+ * dysk zewnętrzny), a nie tylko partycji root. Korzysta z lsblk, żeby ograniczyć
+ * się do realnych urządzeń blokowych (pomija tmpfs/overlay/proc itp.), a rozmiary
+ * liczy natywnie przez PHP (disk_total_space/disk_free_space) dla każdego punktu
+ * montowania.
+ */
+function get_all_disks_info(): array
+{
+    $disks = [];
+    $seenMounts = [];
+
+    $collect = static function (array $dev) use (&$collect, &$disks, &$seenMounts): void {
+        $mount = $dev['mountpoint'] ?? null;
+        $type = $dev['type'] ?? '';
+
+        if ($mount !== null && $mount !== '' && $type !== 'loop' && !isset($seenMounts[$mount])) {
+            $total = @disk_total_space($mount);
+            $free = @disk_free_space($mount);
+
+            if ($total !== false && $free !== false && $total > 0) {
+                $used = $total - $free;
+                $disks[] = [
+                    'device' => '/dev/' . ($dev['name'] ?? '?'),
+                    'mount' => $mount,
+                    'label' => $mount === '/' ? 'System (SD)' : basename($mount),
+                    'total' => (int) $total,
+                    'used' => (int) $used,
+                    'free' => (int) $free,
+                    'percent' => round(($used / $total) * 100, 1),
+                ];
+                $seenMounts[$mount] = true;
+            }
+        }
+
+        foreach ($dev['children'] ?? [] as $child) {
+            $collect($child);
+        }
+    };
+
+    foreach (get_block_devices() as $device) {
+        $collect($device);
+    }
+
+    if ($disks === []) {
+        // lsblk niedostępny lub bez wyników - przynajmniej partycja root.
+        $root = get_disk_info('/');
+        if ($root['total'] > 0) {
+            $disks[] = array_merge(['device' => '/', 'mount' => '/', 'label' => 'System (SD)'], $root);
+        }
+    }
+
+    return $disks;
+}
+
 /** Informacje systemowe: uptime, hostname, IP LAN, wersja OS, kernel, architektura. */
 function get_system_info(): array
 {

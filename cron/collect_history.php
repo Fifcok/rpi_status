@@ -46,7 +46,18 @@ $pdo = history_db();
 
 $cpu = get_cpu_info();
 $ram = get_ram_info();
-$disk = get_disk_info();
+$disks = get_all_disks_info();
+
+// Do wykresu historii bierzemy partycję root (system) - reszta dysków jest
+// nadal sprawdzana pod kątem alarmów poniżej, tylko nie trafia do wykresu.
+$rootDisk = null;
+foreach ($disks as $d) {
+    if ($d['mount'] === '/') {
+        $rootDisk = $d;
+        break;
+    }
+}
+$rootDiskPercent = $rootDisk['percent'] ?? ($disks[0]['percent'] ?? null);
 
 $insert = $pdo->prepare('
     INSERT INTO metrics_history (recorded_at, cpu_percent, ram_percent, disk_percent, temp_celsius)
@@ -56,7 +67,7 @@ $insert->execute([
     ':t' => time(),
     ':cpu' => $cpu['percent'],
     ':ram' => $ram['percent'],
-    ':disk' => $disk['percent'],
+    ':disk' => $rootDiskPercent,
     ':temp' => $cpu['temp'],
 ]);
 
@@ -67,9 +78,11 @@ if ($cpu['percent'] !== null && $cpu['percent'] > ALERT_THRESHOLDS['cpu_percent'
 if ($ram['percent'] > ALERT_THRESHOLDS['ram_percent']) {
     raise_alert($pdo, 'ram_high', "Wysokie użycie RAM: {$ram['percent']}%", 'warning');
 }
-if ($disk['percent'] > ALERT_THRESHOLDS['disk_percent']) {
-    raise_alert($pdo, 'disk_high', "Wysokie zajęcie dysku: {$disk['percent']}%", 'critical');
-    raise_alert($pdo, 'disk_full', 'Brak miejsca na dysku - rozważ czyszczenie lub rozszerzenie partycji.', 'critical');
+foreach ($disks as $d) {
+    if ($d['percent'] > ALERT_THRESHOLDS['disk_percent']) {
+        $diskKey = preg_replace('/[^a-z0-9]+/i', '_', $d['mount']);
+        raise_alert($pdo, 'disk_high_' . $diskKey, "Wysokie zajęcie dysku {$d['label']} ({$d['mount']}): {$d['percent']}%", 'critical');
+    }
 }
 if ($cpu['temp'] !== null && $cpu['temp'] > ALERT_THRESHOLDS['temp_celsius']) {
     raise_alert($pdo, 'temp_high', "Wysoka temperatura CPU: {$cpu['temp']}°C", 'critical');
@@ -103,4 +116,4 @@ if ($lastBackup !== null && $lastBackup['status'] === 'failed') {
     raise_alert($pdo, 'backup_failed', 'Ostatni backup zakończył się niepowodzeniem: ' . ($lastBackup['message'] ?? ''), 'critical');
 }
 
-fwrite(STDOUT, '[' . date('Y-m-d H:i:s') . "] Zapisano probke metryk (CPU={$cpu['percent']}% RAM={$ram['percent']}% DISK={$disk['percent']}% TEMP={$cpu['temp']})\n");
+fwrite(STDOUT, '[' . date('Y-m-d H:i:s') . "] Zapisano probke metryk (CPU={$cpu['percent']}% RAM={$ram['percent']}% DISK={$rootDiskPercent}% TEMP={$cpu['temp']})\n");

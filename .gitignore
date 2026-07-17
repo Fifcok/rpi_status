@@ -1,3 +1,6 @@
+# Prawdziwa konfiguracja z hasłami - śledzony jest tylko config.example.php.
+/config.php
+
 # Dane wykonawcze (nie powinny trafiać do repozytorium).
 /data/*.sqlite
 /data/*.sqlite-*
