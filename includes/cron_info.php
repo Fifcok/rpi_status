@@ -137,12 +137,18 @@ function find_last_cron_run(string $command): ?string
  * "Konsola" cron - lista ostatnio faktycznie wykonanych poleceń (nie tylko
  * zdefiniowanych w crontabach), najnowsze pierwsze. Czyta wpisy demona crona
  * z logów systemowych i wyciąga z nich użytkownika oraz polecenie.
+ *
+ * Każde wykonanie zadania generuje w logu 3 linie: "session opened", samo
+ * polecenie ("CMD (...)" lub linia "user: polecenie") i "session closed" -
+ * te pierwsze i ostatnie to szum bez treści, więc są tu odfiltrowywane, żeby
+ * konsola pokazywała wyłącznie realnie wykonane komendy.
  */
 function get_recent_cron_log(int $limit = 15): array
 {
     $limit = max(1, min($limit, 200));
 
-    $log = fetch_cron_raw_log(500);
+    // Więcej surowych linii niż $limit, bo większość to odfiltrowany szum PAM/info.
+    $log = fetch_cron_raw_log(1000);
     if ($log === '') {
         return [];
     }
@@ -153,7 +159,11 @@ function get_recent_cron_log(int $limit = 15): array
         if ($line === '' || stripos($line, 'CRON') === false) {
             continue;
         }
-        $entries[] = parse_cron_log_line($line);
+        $entry = parse_cron_log_line($line);
+        if ($entry['command'] === null) {
+            continue; // pomiń "session opened/closed" i "(CRON) info (No MTA...)"
+        }
+        $entries[] = $entry;
     }
 
     // Najnowsze na górze - w logu są chronologicznie od najstarszych.

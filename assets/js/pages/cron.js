@@ -26,11 +26,16 @@ function renderCronConsole(entries) {
     if (!el) return;
 
     if (!entries || entries.length === 0) {
-        el.textContent = 'Brak danych w logach systemowych (journalctl/syslog).';
+        el.innerHTML = '<div class="text-muted">Brak danych w logach systemowych (journalctl/syslog).</div>';
         return;
     }
 
-    el.textContent = entries.map((e) => `[${e.time ?? '?'}] ${e.user ?? '?'}: ${e.command ?? e.raw}`).join('\n');
+    el.innerHTML = entries.map((e) => {
+        const time = escapeHtml(e.time ?? '?');
+        const user = escapeHtml(e.user ?? '?');
+        const command = escapeHtml(e.command ?? e.raw);
+        return `<div class="console-line">[${time}] <strong>${user}</strong>: ${command}</div>`;
+    }).join('');
 }
 
 function loadCronJobs() {

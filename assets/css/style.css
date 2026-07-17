@@ -225,6 +225,11 @@ body {
     color: var(--text-primary);
 }
 .log-line-ERROR { color: #f85149; }
+
+/* ---------- Konsola cron (jeden wpis = jeden wiersz, niezależnie od white-space) ---------- */
+.console-line { padding: 3px 0; border-bottom: 1px solid var(--border-color); }
+.console-line:last-child { border-bottom: none; }
+.console-line strong { color: var(--accent); font-weight: 600; }
 .log-line-WARNING { color: #d29922; }
 .log-line-INFO { color: var(--text-primary); }
 

@@ -23,8 +23,13 @@ require APP_ROOT . '/includes/header.php';
 <div class="card mb-3">
     <div class="card-header"><i class="bi bi-terminal"></i> Konsola — ostatnie 15 wykonanych poleceń</div>
     <div class="card-body">
-        <pre class="log-viewer" id="cronConsole"><?php if (!$recentLog): ?>Brak danych w logach systemowych (journalctl/syslog).<?php else: foreach ($recentLog as $entry): ?>[<?= h($entry['time'] ?? '?') ?>] <?= h($entry['user'] ?? '?') ?>: <?= h($entry['command'] ?? $entry['raw']) ?>
-<?php endforeach; endif; ?></pre>
+        <div class="log-viewer" id="cronConsole">
+            <?php if (!$recentLog): ?>
+            <div class="text-muted">Brak danych w logach systemowych (journalctl/syslog).</div>
+            <?php else: foreach ($recentLog as $entry): ?>
+            <div class="console-line">[<?= h($entry['time'] ?? '?') ?>] <strong><?= h($entry['user'] ?? '?') ?></strong>: <?= h($entry['command'] ?? $entry['raw']) ?></div>
+            <?php endforeach; endif; ?>
+        </div>
     </div>
 </div>
 
