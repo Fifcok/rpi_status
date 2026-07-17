@@ -69,7 +69,7 @@ function get_failed_ssh_logins(int $limit = 50): array
 }
 
 /** Ranking adresów IP z największą liczbą nieudanych prób logowania. */
-function get_top_attacking_ips(int $limit = 10): array
+function get_top_attacking_ips(int $limit = 15): array
 {
     $failed = get_failed_ssh_logins(500);
     $counts = [];
@@ -86,6 +86,28 @@ function get_top_attacking_ips(int $limit = 10): array
     $result = [];
     foreach ($top as $ip => $count) {
         $result[] = ['ip' => $ip, 'attempts' => $count];
+    }
+    return $result;
+}
+
+/** Ranking loginów najczęściej używanych w nieudanych próbach logowania (np. admin, root, pi). */
+function get_top_failed_usernames(int $limit = 15): array
+{
+    $failed = get_failed_ssh_logins(500);
+    $counts = [];
+    foreach ($failed as $attempt) {
+        $user = $attempt['user'];
+        if ($user === '' || $user === '?') {
+            continue;
+        }
+        $counts[$user] = ($counts[$user] ?? 0) + 1;
+    }
+    arsort($counts);
+    $top = array_slice($counts, 0, max(1, min($limit, 100)), true);
+
+    $result = [];
+    foreach ($top as $user => $count) {
+        $result[] = ['user' => $user, 'attempts' => $count];
     }
     return $result;
 }

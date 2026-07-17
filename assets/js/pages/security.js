@@ -5,6 +5,7 @@ function loadSecurity() {
         renderLoginRows('recentLoginsBody', data.recent_logins);
         renderLoginRows('failedLoginsBody', data.failed_logins);
         renderAttackers(data.top_attackers);
+        renderUsernames(data.top_usernames);
         renderFirewall(data.firewall);
         renderFail2ban(data.fail2ban);
     }).catch(() => {});
@@ -28,6 +29,16 @@ function renderAttackers(attackers) {
         return;
     }
     tbody.innerHTML = attackers.map((a) => `<tr><td>${escapeHtml(a.ip)}</td><td>${a.attempts}</td></tr>`).join('');
+}
+
+function renderUsernames(usernames) {
+    const tbody = document.getElementById('usernamesBody');
+    if (!tbody) return;
+    if (!usernames || usernames.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="2" class="text-center text-muted py-4">Brak danych.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = usernames.map((u) => `<tr><td>${escapeHtml(u.user)}</td><td>${u.attempts}</td></tr>`).join('');
 }
 
 function renderFirewall(firewall) {

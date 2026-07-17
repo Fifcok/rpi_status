@@ -6,9 +6,10 @@ require_once __DIR__ . '/../includes/auth.php';
 require_login();
 require_once __DIR__ . '/../includes/security_info.php';
 
-$recentLogins = get_recent_ssh_logins(20);
+$recentLogins = get_recent_ssh_logins(15);
 $failedLogins = get_failed_ssh_logins(50);
-$topAttackers = get_top_attacking_ips(10);
+$topAttackers = get_top_attacking_ips(15);
+$topUsernames = get_top_failed_usernames(15);
 $firewall = get_firewall_status();
 $fail2ban = get_fail2ban_status();
 
@@ -86,9 +87,9 @@ require APP_ROOT . '/includes/header.php';
             </div>
         </div>
     </div>
-    <div class="col-12">
+    <div class="col-lg-6">
         <div class="card">
-            <div class="card-header">Najczęściej atakujące adresy IP</div>
+            <div class="card-header">Top 15 — najczęściej atakujące adresy IP</div>
             <div class="card-body p-0">
                 <table class="table table-dark-custom mb-0">
                     <thead><tr><th>IP</th><th>Liczba prób</th></tr></thead>
@@ -97,6 +98,24 @@ require APP_ROOT . '/includes/header.php';
                         <tr><td><?= h($attacker['ip']) ?></td><td><?= h((string) $attacker['attempts']) ?></td></tr>
                     <?php endforeach; ?>
                     <?php if (!$topAttackers): ?>
+                        <tr><td colspan="2" class="text-center text-muted py-4">Brak danych.</td></tr>
+                    <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">Top 15 — najczęściej próbowane loginy</div>
+            <div class="card-body p-0">
+                <table class="table table-dark-custom mb-0">
+                    <thead><tr><th>Login</th><th>Liczba prób</th></tr></thead>
+                    <tbody id="usernamesBody">
+                    <?php foreach ($topUsernames as $entry): ?>
+                        <tr><td><?= h($entry['user']) ?></td><td><?= h((string) $entry['attempts']) ?></td></tr>
+                    <?php endforeach; ?>
+                    <?php if (!$topUsernames): ?>
                         <tr><td colspan="2" class="text-center text-muted py-4">Brak danych.</td></tr>
                     <?php endif; ?>
                     </tbody>
