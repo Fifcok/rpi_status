@@ -18,6 +18,7 @@ $user = current_user();
 <meta name="csrf-token" content="<?= h(csrf_token()) ?>">
 <meta name="base-path" content="<?= h(BASE_PATH) ?>">
 <title><?= h($pageTitle) ?> — <?= h(APP_NAME) ?></title>
+<link rel="icon" type="image/svg+xml" href="<?= h(BASE_PATH) ?>/assets/favicon.svg">
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
