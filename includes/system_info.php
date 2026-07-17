@@ -119,7 +119,14 @@ function get_ram_info(): array
     ];
 }
 
-/** Dysk: zajętość, wolne miejsce, procent (dla partycji root). */
+/**
+ * Dysk: zajętość, wolne miejsce, procent (dla partycji root).
+ * Wartości trzymane są jako float, NIE int: na 32-bitowym PHP (np. Raspberry Pi OS
+ * w wersji 32-bitowej - "armhf") rzutowanie (int) na rozmiar dysku większy niż ~2GB
+ * (limit 32-bitowego int, PHP_INT_MAX = 2147483647) obcina wartość, przez co duże
+ * dyski pokazywały się jako "2 GB". Float (double) w PHP bezpiecznie mieści
+ * precyzyjnie liczby całkowite aż do ~9*10^15 (petabajty), więc problem nie występuje.
+ */
 function get_disk_info(string $mount = '/'): array
 {
     $total = @disk_total_space($mount);
@@ -133,9 +140,9 @@ function get_disk_info(string $mount = '/'): array
     $percent = round(($used / $total) * 100, 1);
 
     return [
-        'total' => (int) $total,
-        'used' => (int) $used,
-        'free' => (int) $free,
+        'total' => (float) $total,
+        'used' => (float) $used,
+        'free' => (float) $free,
         'percent' => $percent,
     ];
 }
@@ -221,7 +228,10 @@ function get_disks_via_df(): array
             continue;
         }
         [, $source, $target, , $size, $used, $avail] = $m;
-        $size = (int) $size;
+        // Float, nie int - patrz komentarz przy get_disk_info() (obcinanie na 32-bit PHP).
+        $size = (float) $size;
+        $used = (float) $used;
+        $avail = (float) $avail;
         if ($size <= 0) {
             continue;
         }
@@ -231,9 +241,9 @@ function get_disks_via_df(): array
             'mount' => $target,
             'label' => $target === '/' ? 'System (SD)' : basename($target),
             'total' => $size,
-            'used' => (int) $used,
-            'free' => (int) $avail,
-            'percent' => round(((int) $used / $size) * 100, 1),
+            'used' => $used,
+            'free' => $avail,
+            'percent' => round(($used / $size) * 100, 1),
         ];
     }
 
@@ -260,9 +270,10 @@ function get_disks_via_lsblk(): array
                     'device' => '/dev/' . ($dev['name'] ?? '?'),
                     'mount' => $mount,
                     'label' => $mount === '/' ? 'System (SD)' : basename($mount),
-                    'total' => (int) $total,
-                    'used' => (int) $used,
-                    'free' => (int) $free,
+                    // Float, nie int - patrz komentarz przy get_disk_info() (obcinanie na 32-bit PHP).
+                    'total' => (float) $total,
+                    'used' => (float) $used,
+                    'free' => (float) $free,
                     'percent' => round(($used / $total) * 100, 1),
                 ];
                 $seenMounts[$mount] = true;
