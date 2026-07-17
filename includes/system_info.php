@@ -193,7 +193,9 @@ function get_disks_via_df(): array
         'tracefs', 'configfs', 'autofs', 'binfmt_misc', 'fusectl', 'rpc_pipefs', 'efivarfs',
     ];
 
-    $args = ['-P', '-B1', '--output=source,target,fstype,size,used,avail,pcent'];
+    // Uwaga: -P i --output wzajemnie się wykluczają w GNU df - --output daje pełną
+    // kontrolę nad kolumnami, więc -P (format POSIX) jest tu zbędne.
+    $args = ['-B1', '--output=source,target,fstype,size,used,avail,pcent'];
     foreach ($excludedTypes as $type) {
         $args[] = '-x';
         $args[] = $type;
