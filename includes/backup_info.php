@@ -72,16 +72,37 @@ function run_full_backup(): array
         }
 
         // 2) Kopiowanie plików www i konfiguracji (rsync jeśli dostępny, inaczej cp -r).
+        //
+        // WAŻNE: katalog backupu tej aplikacji (backup/) leży fizycznie wewnątrz
+        // BACKUP_TARGETS['www'] (/var/www), razem z data/ i logs/. Bez wykluczenia
+        // każdy kolejny backup kopiowałby WSZYSTKIE poprzednie archiwa (i właśnie
+        // tworzony, rosnący katalog roboczy) do samego siebie - w praktyce
+        // samonapędzająca się, nigdy niekończąca się kopia zżerająca całe CPU/dysk.
         foreach (BACKUP_TARGETS as $key => $sourcePath) {
             if (!is_readable($sourcePath)) {
                 continue;
             }
             $destPath = $workDir . '/' . $key;
             mkdir($destPath, 0750, true);
+            $source = rtrim($sourcePath, '/');
+
+            $excludeAbsolute = [];
+            foreach ([DATA_DIR, LOGS_DIR, BACKUP_DIR, APP_ROOT . '/.git'] as $ownDir) {
+                if (path_is_within($ownDir, $source)) {
+                    $excludeAbsolute[] = $ownDir;
+                }
+            }
+
             if (command_exists('rsync')) {
-                safe_exec('rsync', ['-a', '--exclude=.git', rtrim($sourcePath, '/') . '/', $destPath . '/']);
+                $args = ['-a'];
+                foreach ($excludeAbsolute as $excluded) {
+                    $args[] = '--exclude=' . relative_path($source, $excluded);
+                }
+                $args[] = $source . '/';
+                $args[] = $destPath . '/';
+                safe_exec('rsync', $args);
             } else {
-                safe_exec('cp', ['-r', rtrim($sourcePath, '/'), $destPath]);
+                copy_directory_excluding($source, $destPath, $excludeAbsolute);
             }
         }
 
@@ -115,6 +136,62 @@ function run_full_backup(): array
 
         app_log('error', 'Backup nieudany: ' . $e->getMessage());
         return ['success' => false, 'message' => $e->getMessage(), 'file' => null, 'size_bytes' => 0];
+    }
+}
+
+/** Czy $child leży wewnątrz (lub jest równy) katalogowi $parent - porównanie na realpath(). */
+function path_is_within(string $child, string $parent): bool
+{
+    $childReal = realpath($child);
+    $parentReal = realpath($parent);
+    if ($childReal === false || $parentReal === false) {
+        return false;
+    }
+    $parentReal = rtrim($parentReal, '/');
+    return $childReal === $parentReal || str_starts_with($childReal, $parentReal . '/');
+}
+
+/** Ścieżka $path względem $base (do użycia w rsync --exclude, który jest relatywny do źródła). */
+function relative_path(string $base, string $path): string
+{
+    $baseReal = rtrim((string) realpath($base), '/');
+    $pathReal = (string) realpath($path);
+    return ltrim(substr($pathReal, strlen($baseReal)), '/');
+}
+
+/**
+ * Fallback dla systemów bez rsync: rekurencyjne kopiowanie z pominięciem
+ * wskazanych katalogów bezwzględnych (np. własnego backup/, żeby uniknąć
+ * kopiowania katalogu backupu do samego siebie w nieskończoność).
+ */
+function copy_directory_excluding(string $src, string $dest, array $excludeAbsolute): void
+{
+    if (!is_dir($dest) && !mkdir($dest, 0750, true) && !is_dir($dest)) {
+        return;
+    }
+
+    $entries = @scandir($src);
+    if ($entries === false) {
+        return;
+    }
+
+    foreach ($entries as $entry) {
+        if ($entry === '.' || $entry === '..') {
+            continue;
+        }
+        $srcPath = $src . '/' . $entry;
+        foreach ($excludeAbsolute as $excluded) {
+            if (path_is_within($srcPath, $excluded)) {
+                continue 2;
+            }
+        }
+
+        $destPath = $dest . '/' . $entry;
+        if (is_dir($srcPath) && !is_link($srcPath)) {
+            copy_directory_excluding($srcPath, $destPath, $excludeAbsolute);
+        } elseif (is_file($srcPath)) {
+            @copy($srcPath, $destPath);
+        }
     }
 }
 
