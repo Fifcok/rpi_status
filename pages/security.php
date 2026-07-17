@@ -92,7 +92,7 @@ require APP_ROOT . '/includes/header.php';
         <div class="card">
             <div class="card-header d-flex align-items-center justify-content-between">
                 <span>Top 15 w tym miesiącu — najczęściej atakujące adresy IP</span>
-                <span class="text-muted small" id="attackersSummary">łącznie <?= h((string) $summary['total_attempts']) ?> prób z <?= h((string) $summary['total_unique_ips']) ?> adresów</span>
+                <span class="text-muted small" id="attackersSummary">łącznie <?= h((string) $summary['total_attempts']) ?><?= $summary['truncated'] ? '+' : '' ?> prób z <?= h((string) $summary['total_unique_ips']) ?> adresów</span>
             </div>
             <div class="card-body p-0">
                 <table class="table table-dark-custom mb-0">
@@ -113,7 +113,7 @@ require APP_ROOT . '/includes/header.php';
         <div class="card">
             <div class="card-header d-flex align-items-center justify-content-between">
                 <span>Top 15 w tym miesiącu — najczęściej próbowane loginy</span>
-                <span class="text-muted small" id="usernamesSummary">łącznie <?= h((string) $summary['total_attempts']) ?> prób z <?= h((string) $summary['total_unique_usernames']) ?> loginów</span>
+                <span class="text-muted small" id="usernamesSummary">łącznie <?= h((string) $summary['total_attempts']) ?><?= $summary['truncated'] ? '+' : '' ?> prób z <?= h((string) $summary['total_unique_usernames']) ?> loginów</span>
             </div>
             <div class="card-body p-0">
                 <table class="table table-dark-custom mb-0">

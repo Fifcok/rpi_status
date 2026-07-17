@@ -18,6 +18,7 @@ json_response([
     'total_attempts' => $summary['total_attempts'],
     'total_unique_ips' => $summary['total_unique_ips'],
     'total_unique_usernames' => $summary['total_unique_usernames'],
+    'truncated' => $summary['truncated'],
     'firewall' => get_firewall_status(),
     'fail2ban' => get_fail2ban_status(),
 ]);

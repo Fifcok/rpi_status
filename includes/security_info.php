@@ -68,10 +68,17 @@ function get_failed_ssh_logins(int $limit = 50): array
     return $failed;
 }
 
+// Bezpiecznik liczby wpisów wczytywanych przez get_all_failed_ssh_logins() - chroni
+// przed eksplozją pamięci, gdyby ktoś wyłączył rotację btmp i plik urósł latami.
+// 100000 to duży zapas ponad realistyczny ruch botów w jeden miesiąc (patrz komentarz
+// w funkcji) - jeśli suma w UI utyka dokładnie na tej liczbie, to znak, że trzeba
+// podnieść wartość jeszcze wyżej, a nie że to prawdziwy limit logów.
+const MAX_FAILED_LOGIN_ENTRIES = 100000;
+
 /**
  * Wszystkie nieudane logowania SSH od początku dostępnej historii (bez limitu -n),
- * do liczenia rankingów top-N na pełnym zbiorze zamiast tylko ostatnich N prób.
- * Bezpiecznik 20000 wpisów, żeby nie eksplodować pamięciowo na bardzo starych btmp.
+ * do liczenia rankingów top-N i sum całkowitych na pełnym zbiorze zamiast tylko
+ * ostatnich N prób.
  */
 function get_all_failed_ssh_logins(): array
 {
@@ -88,7 +95,7 @@ function get_all_failed_ssh_logins(): array
                 continue;
             }
             $failed[] = ['user' => $parts[0], 'ip' => $parts[2] ?? ''];
-            if (count($failed) >= 20000) {
+            if (count($failed) >= MAX_FAILED_LOGIN_ENTRIES) {
                 break;
             }
         }
@@ -96,11 +103,11 @@ function get_all_failed_ssh_logins(): array
     }
 
     // Fallback: journalctl (sshd) - szukamy "Failed password ... from <ip>"
-    $journal = safe_exec_privileged('journalctl', ['-u', 'ssh', '-u', 'sshd', '--no-pager', '-n', '20000']);
+    $journal = safe_exec_privileged('journalctl', ['-u', 'ssh', '-u', 'sshd', '--no-pager', '-n', (string) MAX_FAILED_LOGIN_ENTRIES]);
     foreach (explode("\n", $journal) as $line) {
         if (preg_match('/Failed password for (?:invalid user )?(\S+) from ([\d.:a-fA-F]+)/', $line, $m)) {
             $failed[] = ['user' => $m[1], 'ip' => $m[2]];
-            if (count($failed) >= 20000) {
+            if (count($failed) >= MAX_FAILED_LOGIN_ENTRIES) {
                 break;
             }
         }
@@ -150,6 +157,10 @@ function get_failed_login_summary(int $limit = 15): array
         'total_attempts' => count($failed),
         'total_unique_ips' => count($ipCounts),
         'total_unique_usernames' => count($userCounts),
+        // Jeśli trafiliśmy dokładnie w bezpiecznik MAX_FAILED_LOGIN_ENTRIES, suma
+        // jest ucięta, nie prawdziwa - UI powinno to zasygnalizować zamiast pokazywać
+        // okrągłą liczbę jako pewnik.
+        'truncated' => count($failed) >= MAX_FAILED_LOGIN_ENTRIES,
         'top_ips' => $topIps,
         'top_usernames' => $topUsernames,
     ];
