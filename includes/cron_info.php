@@ -12,9 +12,22 @@ function get_cron_jobs(): array
 {
     $jobs = [];
 
-    foreach (['root', 'www-data'] as $user) {
+    // Lista użytkowników sprawdzana pod kątem własnych crontabów (crontab -l -u <user>).
+    // Domyślnie root + www-data; dodaj tu swojego użytkownika SSH (np. w config.php:
+    // const CRON_USERS = ['root', 'www-data', 'twoj_user'];), jeśli masz tam własne zadania.
+    $users = defined('CRON_USERS') ? CRON_USERS : ['root', 'www-data'];
+
+    foreach ($users as $user) {
         $raw = safe_exec_privileged('crontab', ['-l', '-u', $user]);
-        foreach (parse_crontab($raw, $user) as $job) {
+        foreach (parse_crontab($raw, 'crontab: ' . $user, $user) as $job) {
+            $jobs[] = $job;
+        }
+    }
+
+    // /etc/crontab - systemowy crontab z dodatkową kolumną użytkownika.
+    if (is_readable('/etc/crontab')) {
+        $raw = (string) @file_get_contents('/etc/crontab');
+        foreach (parse_crontab($raw, '/etc/crontab', null, true) as $job) {
             $jobs[] = $job;
         }
     }
@@ -24,7 +37,7 @@ function get_cron_jobs(): array
             continue;
         }
         $raw = (string) @file_get_contents($file);
-        foreach (parse_crontab($raw, basename($file), true) as $job) {
+        foreach (parse_crontab($raw, basename($file), null, true) as $job) {
             $jobs[] = $job;
         }
     }
@@ -39,10 +52,11 @@ function get_cron_jobs(): array
 }
 
 /**
- * Parsuje zawartość crontaba. Format /etc/cron.d różni się od crontab -l
- * dodatkową kolumną z nazwą użytkownika, stąd parametr $isSystemCrontab.
+ * Parsuje zawartość crontaba. Format /etc/crontab i /etc/cron.d różni się od
+ * "crontab -l" dodatkową kolumną z nazwą użytkownika, stąd parametr $isSystemCrontab.
+ * Dla "crontab -l -u X" użytkownik jest znany z góry ($knownUser) i nie ma go w treści pliku.
  */
-function parse_crontab(string $raw, string $source, bool $isSystemCrontab = false): array
+function parse_crontab(string $raw, string $source, ?string $knownUser, bool $isSystemCrontab = false): array
 {
     if ($raw === '') {
         return [];
@@ -65,7 +79,7 @@ function parse_crontab(string $raw, string $source, bool $isSystemCrontab = fals
 
         $schedule = $m[1];
         $command = $isSystemCrontab ? $m[3] : $m[2];
-        $runAsUser = $isSystemCrontab ? $m[2] : $source;
+        $runAsUser = $isSystemCrontab ? $m[2] : ($knownUser ?? '?');
 
         $jobs[] = [
             'source' => $source,
@@ -77,6 +91,16 @@ function parse_crontab(string $raw, string $source, bool $isSystemCrontab = fals
     return $jobs;
 }
 
+/** Pobiera surowy log demona cron (journalctl, z fallbackiem do /var/log/syslog). */
+function fetch_cron_raw_log(int $lines = 500): string
+{
+    $log = safe_exec_privileged('journalctl', ['-u', 'cron', '-u', 'crond', '--no-pager', '-n', (string) $lines]);
+    if ($log === '') {
+        $log = safe_exec_privileged('grep', ['CRON', '/var/log/syslog']);
+    }
+    return $log;
+}
+
 /** Szuka w logach systemowych ostatniego wykonania polecenia (dopasowanie po fragmencie komendy). */
 function find_last_cron_run(string $command): ?string
 {
@@ -85,10 +109,7 @@ function find_last_cron_run(string $command): ?string
         return null;
     }
 
-    $log = safe_exec_privileged('journalctl', ['-u', 'cron', '-u', 'crond', '--no-pager', '-n', '500']);
-    if ($log === '') {
-        $log = safe_exec_privileged('grep', ['CRON', '/var/log/syslog']);
-    }
+    $log = fetch_cron_raw_log(500);
     if ($log === '') {
         return null;
     }
@@ -110,4 +131,61 @@ function find_last_cron_run(string $command): ?string
     }
 
     return null;
+}
+
+/**
+ * "Konsola" cron - lista ostatnio faktycznie wykonanych poleceń (nie tylko
+ * zdefiniowanych w crontabach), najnowsze pierwsze. Czyta wpisy demona crona
+ * z logów systemowych i wyciąga z nich użytkownika oraz polecenie.
+ */
+function get_recent_cron_log(int $limit = 15): array
+{
+    $limit = max(1, min($limit, 200));
+
+    $log = fetch_cron_raw_log(500);
+    if ($log === '') {
+        return [];
+    }
+
+    $entries = [];
+    foreach (explode("\n", $log) as $line) {
+        $line = trim($line);
+        if ($line === '' || stripos($line, 'CRON') === false) {
+            continue;
+        }
+        $entries[] = parse_cron_log_line($line);
+    }
+
+    // Najnowsze na górze - w logu są chronologicznie od najstarszych.
+    $entries = array_reverse($entries);
+
+    return array_slice($entries, 0, $limit);
+}
+
+/** Wyciąga znacznik czasu, użytkownika i polecenie z pojedynczej linii logu crona. */
+function parse_cron_log_line(string $line): array
+{
+    $time = null;
+    $user = null;
+    $command = null;
+
+    if (preg_match('/^(\w{3}\s+\d{1,2}\s+[\d:]+)/', $line, $m)) {
+        $ts = strtotime($m[1]);
+        $time = $ts ? date('Y-m-d H:i:s', $ts) : null;
+    } elseif (preg_match('/^(\d{4}-\d{2}-\d{2}[T ][\d:]+)/', $line, $m)) {
+        $ts = strtotime($m[1]);
+        $time = $ts ? date('Y-m-d H:i:s', $ts) : null;
+    }
+
+    if (preg_match('/CRON\[\d+\]:\s*\(([^)]+)\)\s*CMD\s*\((.+)\)\s*$/', $line, $m)) {
+        $user = $m[1];
+        $command = $m[2];
+    }
+
+    return [
+        'time' => $time,
+        'user' => $user,
+        'command' => $command,
+        'raw' => $line,
+    ];
 }

@@ -153,12 +153,93 @@ function get_block_devices(): array
 
 /**
  * Zajętość WSZYSTKICH zamontowanych dysków fizycznych (np. karta SD z systemem +
- * dysk zewnętrzny), a nie tylko partycji root. Korzysta z lsblk, żeby ograniczyć
- * się do realnych urządzeń blokowych (pomija tmpfs/overlay/proc itp.), a rozmiary
- * liczy natywnie przez PHP (disk_total_space/disk_free_space) dla każdego punktu
- * montowania.
+ * dysk zewnętrzny), a nie tylko partycji root.
+ *
+ * Liczby total/used/free pochodzą bezpośrednio z polecenia "df" (a nie z PHP-owych
+ * disk_total_space()/disk_free_space()) celowo: te funkcje PHP opierają się na
+ * statvfs() i potrafią zwracać błędne, niespójne wartości na dyskach zewnętrznych
+ * zamontowanych przez FUSE (exfat-fuse, ntfs-3g) - typowy przypadek dla dysku USB
+ * podłączonego do Raspberry Pi. "df" pyta jądro bezpośrednio i jest wiarygodne
+ * niezależnie od systemu plików.
  */
 function get_all_disks_info(): array
+{
+    $disks = get_disks_via_df();
+    if ($disks !== []) {
+        return $disks;
+    }
+
+    // Fallback: "df" niedostępne - spróbuj przez lsblk + funkcje PHP.
+    $disks = get_disks_via_lsblk();
+    if ($disks !== []) {
+        return $disks;
+    }
+
+    // Ostateczny fallback: przynajmniej partycja root.
+    $root = get_disk_info('/');
+    if ($root['total'] > 0) {
+        return [array_merge(['device' => '/', 'mount' => '/', 'label' => 'System (SD)'], $root)];
+    }
+
+    return [];
+}
+
+/** Główne źródło danych o dyskach: "df" z wykluczeniem systemów plików wirtualnych/pseudo. */
+function get_disks_via_df(): array
+{
+    $excludedTypes = [
+        'tmpfs', 'devtmpfs', 'proc', 'sysfs', 'cgroup', 'cgroup2', 'overlay',
+        'squashfs', 'devpts', 'securityfs', 'pstore', 'debugfs', 'mqueue',
+        'tracefs', 'configfs', 'autofs', 'binfmt_misc', 'fusectl', 'rpc_pipefs', 'efivarfs',
+    ];
+
+    $args = ['-P', '-B1', '--output=source,target,fstype,size,used,avail,pcent'];
+    foreach ($excludedTypes as $type) {
+        $args[] = '-x';
+        $args[] = $type;
+    }
+
+    $output = safe_exec('df', $args);
+    if ($output === '') {
+        return [];
+    }
+
+    $lines = explode("\n", trim($output));
+    array_shift($lines); // nagłówek kolumn
+
+    $disks = [];
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if ($line === '') {
+            continue;
+        }
+        // source target fstype size used avail pcent% - target może zawierać spacje
+        // (np. automatycznie zamontowane dyski USB pod /media/user/Nazwa Dysku).
+        if (!preg_match('/^(\S+)\s+(.+?)\s+(\S+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)%$/', $line, $m)) {
+            continue;
+        }
+        [, $source, $target, , $size, $used, $avail] = $m;
+        $size = (int) $size;
+        if ($size <= 0) {
+            continue;
+        }
+
+        $disks[] = [
+            'device' => $source,
+            'mount' => $target,
+            'label' => $target === '/' ? 'System (SD)' : basename($target),
+            'total' => $size,
+            'used' => (int) $used,
+            'free' => (int) $avail,
+            'percent' => round(((int) $used / $size) * 100, 1),
+        ];
+    }
+
+    return $disks;
+}
+
+/** Fallback, gdy "df" nie jest dostępne: lsblk + PHP disk_total_space()/disk_free_space(). */
+function get_disks_via_lsblk(): array
 {
     $disks = [];
     $seenMounts = [];
@@ -193,14 +274,6 @@ function get_all_disks_info(): array
 
     foreach (get_block_devices() as $device) {
         $collect($device);
-    }
-
-    if ($disks === []) {
-        // lsblk niedostępny lub bez wyników - przynajmniej partycja root.
-        $root = get_disk_info('/');
-        if ($root['total'] > 0) {
-            $disks[] = array_merge(['device' => '/', 'mount' => '/', 'label' => 'System (SD)'], $root);
-        }
     }
 
     return $disks;

@@ -8,4 +8,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../includes/api_bootstrap.php';
 require_once __DIR__ . '/../includes/cron_info.php';
 
-json_response(['jobs' => get_cron_jobs()]);
+json_response([
+    'jobs' => get_cron_jobs(),
+    'recent' => get_recent_cron_log(15),
+]);

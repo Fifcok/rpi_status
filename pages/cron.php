@@ -7,6 +7,7 @@ require_login();
 require_once __DIR__ . '/../includes/cron_info.php';
 
 $jobs = get_cron_jobs();
+$recentLog = get_recent_cron_log(15);
 
 $pageTitle = 'Cron';
 $activePage = 'cron';
@@ -17,6 +18,14 @@ require APP_ROOT . '/includes/header.php';
 <div class="page-header d-flex align-items-center justify-content-between mb-3">
     <h1 class="h4 mb-0">Zadania Cron</h1>
     <button class="btn btn-outline-secondary btn-sm" id="refreshCron"><i class="bi bi-arrow-clockwise"></i> Odśwież</button>
+</div>
+
+<div class="card mb-3">
+    <div class="card-header"><i class="bi bi-terminal"></i> Konsola — ostatnie 15 wykonanych poleceń</div>
+    <div class="card-body">
+        <pre class="log-viewer" id="cronConsole"><?php if (!$recentLog): ?>Brak danych w logach systemowych (journalctl/syslog).<?php else: foreach ($recentLog as $entry): ?>[<?= h($entry['time'] ?? '?') ?>] <?= h($entry['user'] ?? '?') ?>: <?= h($entry['command'] ?? $entry['raw']) ?>
+<?php endforeach; endif; ?></pre>
+    </div>
 </div>
 
 <div class="card">

@@ -94,6 +94,25 @@ Dodaj:
 * * * * * php /var/www/rpi_status/cron/collect_history.php >> /var/www/rpi_status/logs/cron.log 2>&1
 ```
 
+### Strona "Cron" — pokazywanie własnych zadań
+
+Strona "Cron" domyślnie sprawdza crontaby użytkowników `root` i `www-data` oraz
+`/etc/crontab` i `/etc/cron.d/*`. Jeśli masz własne zadania w crontabie swojego
+użytkownika SSH (np. `crontab -e` jako zwykły użytkownik), dodaj go w `config.php`:
+
+```php
+const CRON_USERS = ['root', 'www-data', 'twoj_user'];
+```
+
+> **Aktualizujesz istniejące wdrożenie?** Od wersji, w której `config.php` trafił
+> do `.gitignore`, `git pull` już nie nadpisuje tego pliku — nowe stałe (jak
+> `CRON_USERS`) trzeba dopisać do niego ręcznie, porównując z aktualnym
+> `config.example.php`.
+
+Panel "Cron" pokazuje też konsolę z ostatnimi 15 faktycznie wykonanymi poleceniami
+(na podstawie `journalctl -u cron` / `/var/log/syslog`), niezależnie od listy
+zaplanowanych zadań powyżej.
+
 ## Sudoers — uprawnienia do poleceń diagnostycznych
 
 Wiele danych (temperatura przez `vcgencmd`, logowania SSH przez `last`/`lastb`,

@@ -21,8 +21,23 @@ function renderCronJobs(jobs) {
     `).join('');
 }
 
+function renderCronConsole(entries) {
+    const el = document.getElementById('cronConsole');
+    if (!el) return;
+
+    if (!entries || entries.length === 0) {
+        el.textContent = 'Brak danych w logach systemowych (journalctl/syslog).';
+        return;
+    }
+
+    el.textContent = entries.map((e) => `[${e.time ?? '?'}] ${e.user ?? '?'}: ${e.command ?? e.raw}`).join('\n');
+}
+
 function loadCronJobs() {
-    apiFetch('/api/cron_list.php').then((data) => renderCronJobs(data.jobs)).catch(() => {});
+    apiFetch('/api/cron_list.php').then((data) => {
+        renderCronJobs(data.jobs);
+        renderCronConsole(data.recent);
+    }).catch(() => {});
 }
 
 document.getElementById('refreshCron')?.addEventListener('click', loadCronJobs);

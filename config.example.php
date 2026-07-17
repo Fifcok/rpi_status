@@ -107,6 +107,11 @@ const BACKUP_TARGETS = [
     'config' => '/etc',
 ];
 
+// --- Cron: użytkownicy, których crontaby (crontab -l -u <user>) sprawdza strona "Cron" ---
+// Dodaj tu swojego użytkownika SSH, jeśli masz tam własne zadania cron
+// (np. ['root', 'www-data', 'pi']).
+const CRON_USERS = ['root', 'www-data'];
+
 // Dane logowania do MySQL/MariaDB używane wyłącznie do odczytu metadanych i mysqldump.
 // Zalecane: konto z uprawnieniami tylko SELECT / PROCESS / LOCK TABLES.
 // UZUPEŁNIJ PONIŻSZE WARTOŚCI W SWOJEJ KOPII config.php - NIE w tym pliku.
