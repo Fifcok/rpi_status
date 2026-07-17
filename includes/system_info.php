@@ -37,17 +37,7 @@ function get_cpu_info(string $context = 'web'): array
         }
     }
 
-    // Taktowanie: vcgencmd measure_clock arm (Hz) lub /proc/cpuinfo (MHz).
-    $freqMhz = null;
-    $clock = safe_exec('vcgencmd', ['measure_clock', 'arm']);
-    if ($clock !== '' && preg_match('/=(\d+)/', $clock, $m)) {
-        $freqMhz = round(((int) $m[1]) / 1_000_000, 0);
-    } else {
-        $cpuinfo = (string) @file_get_contents('/proc/cpuinfo');
-        if (preg_match('/cpu MHz\s*:\s*([\d.]+)/', $cpuinfo, $m)) {
-            $freqMhz = round((float) $m[1], 0);
-        }
-    }
+    $freqMhz = get_cpu_frequency_mhz();
 
     return [
         'percent'   => $percent,
@@ -55,6 +45,38 @@ function get_cpu_info(string $context = 'web'): array
         'temp'      => $temp,
         'freq_mhz'  => $freqMhz,
     ];
+}
+
+/**
+ * Aktualne taktowanie CPU w MHz. Kolejność źródeł dobrana pod przenośność:
+ * 1) standardowy sysfs cpufreq jądra Linuksa - działa niezależnie od modelu
+ *    Pi (na Pi5/BCM2712 "vcgencmd measure_clock arm" bywa niedostępne albo
+ *    zwraca co innego niż na starszych Pi, a /proc/cpuinfo na ARM często
+ *    w ogóle nie ma pola "cpu MHz").
+ * 2) vcgencmd measure_clock arm (specyficzne dla RPi, starsze modele).
+ * 3) /proc/cpuinfo jako ostateczny fallback (x86/niektóre jądra ARM).
+ */
+function get_cpu_frequency_mhz(): ?float
+{
+    $sysfsPath = '/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq';
+    if (is_readable($sysfsPath)) {
+        $raw = trim((string) @file_get_contents($sysfsPath));
+        if (is_numeric($raw)) {
+            return round(((float) $raw) / 1000, 0); // sysfs podaje kHz
+        }
+    }
+
+    $clock = safe_exec('vcgencmd', ['measure_clock', 'arm']);
+    if ($clock !== '' && preg_match('/=(\d+)/', $clock, $m)) {
+        return round(((int) $m[1]) / 1_000_000, 0); // vcgencmd podaje Hz
+    }
+
+    $cpuinfo = (string) @file_get_contents('/proc/cpuinfo');
+    if (preg_match('/cpu MHz\s*:\s*([\d.]+)/', $cpuinfo, $m)) {
+        return round((float) $m[1], 0);
+    }
+
+    return null;
 }
 
 /** Odczytuje surowe liczniki jiffies z pierwszej linii /proc/stat ("cpu ..."). */
