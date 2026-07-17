@@ -4,6 +4,8 @@ Panel administracyjny dla Raspberry Pi 5 (PHP 8.3, Bootstrap 5, SQLite, Chart.js
 bez frameworków typu Laravel). Ciemny motyw w stylu Grafana/Proxmox/Home Assistant,
 odświeżanie danych AJAX co 5 sekund.
 
+![Zrzut ekranu dashboardu](img/screen.png)
+
 ## Wymagania
 
 - Raspberry Pi OS / Debian z Apache 2.4 + `mod_php` lub `php-fpm`
