@@ -6,6 +6,8 @@ function loadSecurity() {
         renderLoginRows('failedLoginsBody', data.failed_logins);
         renderAttackers(data.top_attackers);
         renderUsernames(data.top_usernames);
+        renderSummary('attackersSummary', data.total_attempts, data.total_unique_ips, 'adresów');
+        renderSummary('usernamesSummary', data.total_attempts, data.total_unique_usernames, 'loginów');
         renderFirewall(data.firewall);
         renderFail2ban(data.fail2ban);
     }).catch(() => {});
@@ -39,6 +41,12 @@ function renderUsernames(usernames) {
         return;
     }
     tbody.innerHTML = usernames.map((u) => `<tr><td>${escapeHtml(u.user)}</td><td>${u.attempts}</td></tr>`).join('');
+}
+
+function renderSummary(elId, totalAttempts, totalUnique, unitLabel) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    el.textContent = `łącznie ${totalAttempts} prób z ${totalUnique} ${unitLabel}`;
 }
 
 function renderFirewall(firewall) {

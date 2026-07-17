@@ -108,51 +108,51 @@ function get_all_failed_ssh_logins(): array
     return $failed;
 }
 
-/** Ranking adresów IP z największą liczbą nieudanych prób logowania (cała dostępna historia). */
-function get_top_attacking_ips(int $limit = 15): array
+/**
+ * Podsumowanie nieudanych logowań SSH w bieżącym okresie retencji "btmp"
+ * (patrz get_all_failed_ssh_logins() - to zwykle "od początku miesiąca", bo
+ * logrotate domyślnie rotuje ten plik co miesiąc). Liczy top-N adresów IP
+ * i loginów ORAZ sumy całkowite w jednym przebiegu danych, żeby nie odpytywać
+ * "lastb" po raz drugi dla samych sum.
+ */
+function get_failed_login_summary(int $limit = 15): array
 {
+    $limit = max(1, min($limit, 100));
     $failed = get_all_failed_ssh_logins();
-    $counts = [];
+
+    $ipCounts = [];
+    $userCounts = [];
     foreach ($failed as $attempt) {
         $ip = $attempt['ip'];
-        if ($ip === '') {
-            continue;
+        if ($ip !== '') {
+            $ipCounts[$ip] = ($ipCounts[$ip] ?? 0) + 1;
         }
-        $counts[$ip] = ($counts[$ip] ?? 0) + 1;
-    }
-    arsort($counts);
-    $top = array_slice($counts, 0, max(1, min($limit, 100)), true);
-
-    $result = [];
-    foreach ($top as $ip => $count) {
-        $result[] = ['ip' => $ip, 'attempts' => $count];
-    }
-    return $result;
-}
-
-/**
- * Ranking loginów najczęściej używanych w nieudanych próbach logowania
- * (np. admin, root, pi) - cała dostępna historia.
- */
-function get_top_failed_usernames(int $limit = 15): array
-{
-    $failed = get_all_failed_ssh_logins();
-    $counts = [];
-    foreach ($failed as $attempt) {
         $user = $attempt['user'];
-        if ($user === '' || $user === '?') {
-            continue;
+        if ($user !== '' && $user !== '?') {
+            $userCounts[$user] = ($userCounts[$user] ?? 0) + 1;
         }
-        $counts[$user] = ($counts[$user] ?? 0) + 1;
     }
-    arsort($counts);
-    $top = array_slice($counts, 0, max(1, min($limit, 100)), true);
 
-    $result = [];
-    foreach ($top as $user => $count) {
-        $result[] = ['user' => $user, 'attempts' => $count];
+    arsort($ipCounts);
+    arsort($userCounts);
+
+    $topIps = [];
+    foreach (array_slice($ipCounts, 0, $limit, true) as $ip => $count) {
+        $topIps[] = ['ip' => $ip, 'attempts' => $count];
     }
-    return $result;
+
+    $topUsernames = [];
+    foreach (array_slice($userCounts, 0, $limit, true) as $user => $count) {
+        $topUsernames[] = ['user' => $user, 'attempts' => $count];
+    }
+
+    return [
+        'total_attempts' => count($failed),
+        'total_unique_ips' => count($ipCounts),
+        'total_unique_usernames' => count($userCounts),
+        'top_ips' => $topIps,
+        'top_usernames' => $topUsernames,
+    ];
 }
 
 /** Status firewalla: ufw (Debian/Raspberry Pi OS) lub firewalld, z fallbackiem do iptables. */
