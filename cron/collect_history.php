@@ -44,7 +44,7 @@ function raise_alert(PDO $pdo, string $type, string $message, string $severity =
 
 $pdo = history_db();
 
-$cpu = get_cpu_info();
+$cpu = get_cpu_info('cli');
 $ram = get_ram_info();
 $disks = get_all_disks_info();
 

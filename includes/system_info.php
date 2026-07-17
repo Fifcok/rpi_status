@@ -7,8 +7,15 @@
 
 declare(strict_types=1);
 
-/** CPU: użycie %, liczba rdzeni, temperatura, taktowanie. */
-function get_cpu_info(): array
+/**
+ * CPU: użycie %, liczba rdzeni, temperatura, taktowanie.
+ *
+ * @param string $context Rozdziela punkt odniesienia do pomiaru CPU (patrz
+ *   cpu_usage_percent()) między różne pętle odpytywania - domyślnie 'web'
+ *   (dashboard AJAX co 5s), cron/collect_history.php woła z 'cli' (co 60s),
+ *   żeby te dwa niezależne cykle nie nadpisywały sobie nawzajem punktu odniesienia.
+ */
+function get_cpu_info(string $context = 'web'): array
 {
     $cores = (int) (safe_exec('nproc') ?: shell_exec('nproc') ?: 1);
     if ($cores < 1) {
@@ -16,7 +23,7 @@ function get_cpu_info(): array
         $cores = max($cores, 1);
     }
 
-    $percent = cpu_usage_percent();
+    $percent = cpu_usage_percent($context);
 
     // Temperatura: najpierw vcgencmd (specyficzne dla RPi), potem thermal_zone.
     $temp = null;
@@ -50,35 +57,26 @@ function get_cpu_info(): array
     ];
 }
 
-/** Oblicza chwilowe zużycie CPU % na podstawie /proc/stat (próbka 200ms). */
-function cpu_usage_percent(): ?float
+/** Odczytuje surowe liczniki jiffies z pierwszej linii /proc/stat ("cpu ..."). */
+function read_proc_stat_cpu(): ?array
 {
-    $read = static function (): ?array {
-        $line = @file_get_contents('/proc/stat');
-        if ($line === false) {
-            return null;
-        }
-        $firstLine = strtok($line, "\n");
-        $parts = preg_split('/\s+/', trim($firstLine));
-        array_shift($parts); // "cpu"
-        $values = array_map('intval', $parts);
-        return $values;
-    };
-
-    $first = $read();
-    if ($first === null) {
+    $line = @file_get_contents('/proc/stat');
+    if ($line === false) {
         return null;
     }
-    usleep(200000);
-    $second = $read();
-    if ($second === null) {
-        return null;
-    }
+    $firstLine = strtok($line, "\n");
+    $parts = preg_split('/\s+/', trim($firstLine));
+    array_shift($parts); // "cpu"
+    return array_map('intval', $parts);
+}
 
-    $idle1 = ($first[3] ?? 0) + ($first[4] ?? 0);
-    $idle2 = ($second[3] ?? 0) + ($second[4] ?? 0);
-    $total1 = array_sum($first);
-    $total2 = array_sum($second);
+/** Liczy % zużycia CPU na podstawie różnicy dwóch odczytów /proc/stat. */
+function calculate_cpu_percent(array $previous, array $current): ?float
+{
+    $idle1 = ($previous[3] ?? 0) + ($previous[4] ?? 0);
+    $idle2 = ($current[3] ?? 0) + ($current[4] ?? 0);
+    $total1 = array_sum($previous);
+    $total2 = array_sum($current);
 
     $totalDelta = $total2 - $total1;
     $idleDelta = $idle2 - $idle1;
@@ -87,6 +85,48 @@ function cpu_usage_percent(): ?float
         return null;
     }
     return round((1 - $idleDelta / $totalDelta) * 100, 1);
+}
+
+/**
+ * Zużycie CPU % - liczone jako średnia od POPRZEDNIEGO wywołania (punkt
+ * odniesienia trzymany w pliku), a nie z krótkiej 200ms próbki w trakcie
+ * jednego żądania. Krótkie próbki są zaszumione: na w miarę pustym systemie
+ * łapią zero, a gdy trafią na start kilku procesów (np. kilka zadań cron
+ * odpalających się w tej samej sekundzie) - sztucznie wysoki wynik, bo ten
+ * krótki wybuch dominuje w tak małym oknie pomiaru.
+ *
+ * $context rozdziela punkt odniesienia dla różnych pętli odpytujących (web
+ * dashboard co 5s vs cron co 60s), żeby nie nadpisywały sobie nawzajem bazy
+ * porównania i każda dostawała średnią z odpowiadającego jej okresu.
+ */
+function cpu_usage_percent(string $context = 'web'): ?float
+{
+    $current = read_proc_stat_cpu();
+    if ($current === null) {
+        return null;
+    }
+
+    $cacheFile = DATA_DIR . '/cpu_baseline_' . preg_replace('/[^a-z0-9_]/', '', $context) . '.json';
+
+    $previous = null;
+    if (is_readable($cacheFile)) {
+        $decoded = json_decode((string) @file_get_contents($cacheFile), true);
+        if (is_array($decoded)) {
+            $previous = $decoded;
+        }
+    }
+
+    @file_put_contents($cacheFile, json_encode($current), LOCK_EX);
+
+    if ($previous === null) {
+        // Pierwsze wywołanie w tym kontekście - brak punktu odniesienia.
+        // Zwróć jednorazową próbkę 200ms, żeby od razu pokazać sensowną wartość.
+        usleep(200000);
+        $second = read_proc_stat_cpu();
+        return $second !== null ? calculate_cpu_percent($current, $second) : null;
+    }
+
+    return calculate_cpu_percent($previous, $current);
 }
 
 /** RAM: zajęta, wolna, procent, total (bajty). */

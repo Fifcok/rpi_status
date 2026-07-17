@@ -5,7 +5,7 @@
 /data/*.sqlite
 /data/*.sqlite-*
 /data/*.cache
-/data/network_baseline.json
+/data/*.json
 /logs/*.log
 /backup/*.tar.gz
 /backup/tmp_*/
